@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>内存清理大师 - Stack Scavenger</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@700;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a2e; /* 深蓝色背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden; /* 防止滚动 */
+        }
+        .game-board {
+            position: relative;
+            width: 90vmin; /* 响应式尺寸 */
+            height: 90vmin;
+            max-width: 600px;
+            max-height: 600px;
+            border: 8px solid #00c6ff; /* 霓虹边框 */
+            box-shadow: 0 0 30px rgba(0, 198, 255, 0.7);
+            background-color: #24243e; /* 板内深色 */
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        .memory-block {
+            position: absolute;
+            transition: border 0.1s ease-out;
+            border-radius: 8px;
+            cursor: pointer;
+            line-height: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1rem;
+            font-weight: 900;
+            color: white;
+            opacity: 0.9;
+            user-select: none;
+            touch-action: none; /* 优化触屏响应 */
+        }
+        .memory-block:active {
+            transform: scale(0.95);
+        }
+        .leak-zone {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 25%;
+            height: 25%;
+            border-radius: 50%;
+            background-color: rgba(255, 0, 0, 0.2);
+            border: 4px dashed #ff004c;
+            box-shadow: 0 0 15px #ff004c;
+            pointer-events: none; /* 不阻止点击到后面的方块 */
+            z-index: 10;
+            animation: pulse-danger 1.5s infinite alternate;
+        }
+        @keyframes pulse-danger {
+            from { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+            to { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container flex flex-col items-center gap-6 p-4">
+
+    <h1 class="text-4xl font-extrabold text-white text-center tracking-wider" style="text-shadow: 0 0 10px #00c6ff;">
+        内存清理大师
+    </h1>
+
+    <!-- 状态面板 -->
+    <div class="w-full max-w-lg bg-[#3e3276] p-4 rounded-xl shadow-2xl border-b-4 border-indigo-500">
+        <div class="flex justify-between text-lg font-bold mb-3">
+            <div class="text-white">得分: <span id="scoreDisplay" class="text-yellow-300">0</span></div>
+            <button id="startButton" class="px-4 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-150">开始游戏</button>
+        </div>
+        
+        <!-- 内核健康条 (红色警告) -->
+        <div class="mb-2">
+            <div class="text-sm font-semibold text-red-300 mb-1 flex justify-between">
+                <span>内核健康 (防止内存溢出!)</span>
+                <span id="healthValue">100%</span>
+            </div>
+            <div class="h-4 bg-gray-600 rounded-full">
+                <div id="healthBar" class="h-4 bg-red-500 rounded-full transition-all duration-100 ease-linear" style="width: 100%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 游戏区域 -->
+    <div id="gameBoard" class="game-board">
+        <!-- 内存溢出警告区 -->
+        <div class="leak-zone">
+            <span class="text-xl text-white font-black absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                溢出!
+            </span>
+        </div>
+        <!-- 内存块将出现在这里 -->
+    </div>
+    
+    <!-- 游戏结束/消息模态框 -->
+    <div id="messageBox" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-xl shadow-2xl max-w-sm w-full text-center scale-up-center">
+            <h2 id="messageTitle" class="text-4xl font-extrabold mb-4 text-red-600">系统崩溃！</h2>
+            <p id="messageContent" class="text-gray-700 mb-6 text-lg">您没能阻止内存溢出。最终得分：<span id="finalScore" class="font-black text-indigo-600">0</span></p>
+            <button id="restartButton" class="px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-lg hover:bg-indigo-700 transition duration-200" onclick="startGame()">
+                再试一次，清理内存！
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================================
+    // 全局配置和状态
+    // ==========================================================
+    const CONFIG = {
+        HEALTH_MAX: 100,
+        LEAK_DAMAGE: 15,    // 每次泄漏的伤害
+        SPEED_MIN: 0.5,     // 初始速度调高，让游戏一开始就刺激
+        SPEED_MAX: 5.0,     // 最大速度
+        BLOCK_SIZE_MIN: 40,
+        BLOCK_SIZE_MAX: 60,
+        SPAWN_INTERVAL_MAX: 900, // 初始生成间隔 (毫秒)
+        SPAWN_INTERVAL_MIN: 200, // 最小生成间隔
+        DIFFICULTY_SCORE_STEP: 50, // 每 50 分难度增加一次
+        SPAWN_DECREMENT_STEP: 30, // 每次难度增加，间隔时间减少 40ms
+        SPEED_INCREMENT_STEP: 0.1, // 每次难度增加，速度增加 0.2
+    };
+
+    let state = {
+        score: 0,
+        health: CONFIG.HEALTH_MAX,
+        gameActive: false,
+        lastTime: 0,
+        deltaTime: 0,
+        blocks: [],
+        blockIdCounter: 0,
+        spawnTimer: 0,
+        currentSpawnInterval: CONFIG.SPAWN_INTERVAL_MAX,
+        currentBaseSpeed: CONFIG.SPEED_MIN,
+        nextDifficultyScore: CONFIG.DIFFICULTY_SCORE_STEP, // 下一次难度提升的分数线
+        startTime: 0, // 记录游戏开始时间
+    };
+
+    // DOM 引用
+    const gameBoard = document.getElementById('gameBoard');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const healthBar = document.getElementById('healthBar');
+    const healthValueDisplay = document.getElementById('healthValue');
+    const messageBox = document.getElementById('messageBox');
+    const finalScoreDisplay = document.getElementById('finalScore');
+    const startButton = document.getElementById('startButton');
+
+    let BOARD_SIZE = 0;
+    let CENTER_X = 0;
+    let CENTER_Y = 0;
+
+    // 内存块颜色和点击数配置
+    const blockTypes = [
+        { clicks: 1, color: 'bg-green-500', icon: '1' },
+        { clicks: 2, color: 'bg-yellow-500', icon: '2' },
+        { clicks: 3, color: 'bg-red-500', icon: '3' }, // 巨型对象
+    ];
+
+    // ==========================================================
+    // 任务/难度管理函数
+    // ==========================================================
+
+    /**
+     * 随机生成新的内存块。
+     */
+    function spawnBlock() {
+        state.blockIdCounter++;
+        const type = blockTypes[Math.floor(Math.random() * blockTypes.length)];
+        const size = Math.random() * (CONFIG.BLOCK_SIZE_MAX - CONFIG.BLOCK_SIZE_MIN) + CONFIG.BLOCK_SIZE_MIN;
+        const speedMultiplier = Math.random() * 0.5 + 0.75; // 速度随机波动
+        
+        let x, y;
+        let side = Math.floor(Math.random() * 4); // 0: Top, 1: Right, 2: Bottom, 3: Left
+
+        // 随机生成起点位置
+        switch (side) {
+            case 0: // Top
+                x = Math.random() * (BOARD_SIZE - size);
+                y = -size;
+                break;
+            case 1: // Right
+                x = BOARD_SIZE;
+                y = Math.random() * (BOARD_SIZE - size);
+                break;
+            case 2: // Bottom
+                x = Math.random() * (BOARD_SIZE - size);
+                y = BOARD_SIZE;
+                break;
+            case 3: // Left
+                x = -size;
+                y = Math.random() * (BOARD_SIZE - size);
+                break;
+        }
+
+        const newBlock = {
+            id: state.blockIdCounter,
+            x: x,
+            y: y,
+            size: size,
+            clicksNeeded: type.clicks,
+            clicksRemaining: type.clicks,
+            color: type.color,
+            speed: state.currentBaseSpeed * speedMultiplier,
+            element: null,
+        };
+
+        createBlockElement(newBlock);
+        state.blocks.push(newBlock);
+    }
+
+    /**
+     * 提升游戏难度（增加速度，缩短生成间隔）。
+     */
+    function increaseDifficulty() {
+        state.currentSpawnInterval = Math.max(
+            CONFIG.SPAWN_INTERVAL_MIN, 
+            state.currentSpawnInterval - CONFIG.SPAWN_DECREMENT_STEP
+        );
+        
+        state.currentBaseSpeed = Math.min(
+            CONFIG.SPEED_MAX, 
+            state.currentBaseSpeed + CONFIG.SPEED_INCREMENT_STEP
+        );
+
+        // 设置下一个难度提升的分数线
+        state.nextDifficultyScore += CONFIG.DIFFICULTY_SCORE_STEP;
+
+        console.log(`Difficulty increased! Speed: ${state.currentBaseSpeed.toFixed(2)}, Interval: ${state.currentSpawnInterval.toFixed(0)}ms`);
+    }
+
+    // ==========================================================
+    // 元素和事件处理
+    // ==========================================================
+
+    /**
+     * 创建内存块的 DOM 元素。
+     * @param {object} block 内存块对象
+     */
+    function createBlockElement(block) {
+        const div = document.createElement('div');
+        div.className = `memory-block ${block.color} shadow-lg`;
+        div.style.width = `${block.size}px`;
+        div.style.height = `${block.size}px`;
+        div.style.left = `${block.x}px`;
+        div.style.top = `${block.y}px`;
+        div.innerHTML = `<span id="clicks-${block.id}">${block.clicksRemaining}</span>`;
+        div.onclick = (e) => handleBlockClick(e, block.id);
+        
+        block.element = div;
+        gameBoard.appendChild(div);
+    }
+
+    /**
+     * 处理内存块点击事件 (垃圾回收!)
+     * @param {Event} e 事件对象
+     * @param {number} id 内存块ID
+     */
+    function handleBlockClick(e, id) {
+        if (!state.gameActive) return;
+        e.stopPropagation(); // 防止点击穿透到板子上
+
+        const block = state.blocks.find(b => b.id === id);
+        if (!block) return;
+
+        block.clicksRemaining--;
+        block.element.style.border = `4px solid #fff`; // 视觉反馈
+
+        // 更新点击数显示
+        document.getElementById(`clicks-${block.id}`).textContent = block.clicksRemaining;
+
+        if (block.clicksRemaining <= 0) {
+            // 成功清理
+            state.score += block.clicksNeeded * 10;
+            updateScore();
+            removeBlock(block.id);
+            
+            // 检查难度是否需要提升 (修复原逻辑缺陷)
+            if (state.score >= state.nextDifficultyScore) {
+                increaseDifficulty();
+            }
+            
+        } else {
+            // 还有剩余点击数，短暂的反馈后恢复
+            setTimeout(() => {
+                if(block.element) block.element.style.border = 'none';
+            }, 100);
+        }
+    }
+
+    /**
+     * 移除内存块（清理成功或泄漏失败）。
+     * @param {number} id 内存块ID
+     */
+    function removeBlock(id) {
+        state.blocks = state.blocks.filter(block => {
+            if (block.id === id) {
+                if (block.element) gameBoard.removeChild(block.element);
+                return false;
+            }
+            return true;
+        });
+    }
+
+    /**
+     * 造成内核伤害（内存泄漏）。
+     */
+    function applyLeakDamage() {
+        state.health -= CONFIG.LEAK_DAMAGE;
+        
+        // 视觉反馈：屏幕闪烁红色
+        gameBoard.style.boxShadow = `0 0 50px 10px #ff004c`;
+        setTimeout(() => {
+            gameBoard.style.boxShadow = `0 0 30px rgba(0, 198, 255, 0.7)`;
+        }, 100);
+
+        if (state.health <= 0) {
+            state.health = 0;
+            gameOver();
+        }
+        updateHealthBar();
+    }
+
+    // ==========================================================
+    // 游戏主循环
+    // ==========================================================
+
+    /**
+     * 游戏动画主循环。
+     * @param {number} timestamp 当前时间戳
+     */
+    function gameLoop(timestamp) {
+        if (!state.gameActive) return;
+
+        // 计算时间差
+        if (state.lastTime === 0) state.lastTime = timestamp;
+        const frameTime = timestamp - state.lastTime;
+        state.deltaTime = frameTime / 1000; // 转换为秒
+        state.lastTime = timestamp;
+
+        // 1. 块移动逻辑
+        for (let i = state.blocks.length - 1; i >= 0; i--) {
+            const block = state.blocks[i];
+            
+            // 计算到中心的向量
+            const targetX = CENTER_X - block.size / 2;
+            const targetY = CENTER_Y - block.size / 2;
+            const dx = targetX - block.x;
+            const dy = targetY - block.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // 标准化方向向量
+            const ux = dx / distance;
+            const uy = dy / distance;
+
+            // 位移
+            const displacement = block.speed * 60 * state.deltaTime; // 60 FPS 基础速度
+            
+            // 更新位置
+            block.x += ux * displacement;
+            block.y += uy * displacement;
+
+            // 更新 DOM 元素位置
+            if (block.element) {
+                block.element.style.left = `${block.x}px`;
+                block.element.style.top = `${block.y}px`;
+            }
+
+            // 检查泄漏 (碰撞检测)
+            const LEAK_RADIUS = gameBoard.clientWidth * 0.125; // 泄漏区半径 (1/2 泄漏区宽度)
+            if (distance < LEAK_RADIUS) {
+                // 内存泄漏！
+                applyLeakDamage();
+                removeBlock(block.id);
+                // 由于 removeBlock 会修改 state.blocks，需要跳过当前循环的其余部分
+                continue; 
+            }
+        }
+
+        // 2. 块生成逻辑 (基于时间差)
+        state.spawnTimer += frameTime;
+        
+        // 关键修复：如果块列表清空，立即加速生成，保证连续性
+        if (state.blocks.length === 0 && (timestamp - state.startTime) > 500) {
+            state.currentSpawnInterval = CONFIG.SPAWN_INTERVAL_MIN; // 立即切换到最快生成
+        } else if (state.blocks.length > 0 && state.currentSpawnInterval === CONFIG.SPAWN_INTERVAL_MIN) {
+            // 如果有块了，恢复到当前的难度间隔
+            state.currentSpawnInterval = Math.max(
+                CONFIG.SPAWN_INTERVAL_MIN, 
+                CONFIG.SPAWN_INTERVAL_MAX - (Math.floor(state.score / CONFIG.DIFFICULTY_SCORE_STEP) * CONFIG.SPAWN_DECREMENT_STEP)
+            );
+        }
+
+
+        if (state.spawnTimer >= state.currentSpawnInterval) {
+            spawnBlock();
+            state.spawnTimer = 0;
+        }
+
+        // 循环继续
+        requestAnimationFrame(gameLoop);
+    }
+
+    // ==========================================================
+    // UI 和流程管理
+    // ==========================================================
+
+    /**
+     * 更新游戏板中心坐标和尺寸。
+     */
+    function updateBoardMetrics() {
+        BOARD_SIZE = gameBoard.clientWidth;
+        CENTER_X = BOARD_SIZE / 2;
+        CENTER_Y = BOARD_SIZE / 2;
+    }
+
+    /**
+     * 更新分数显示。
+     */
+    function updateScore() {
+        scoreDisplay.textContent = state.score;
+    }
+
+    /**
+     * 更新健康条显示。
+     */
+    function updateHealthBar() {
+        const percent = Math.max(0, state.health / CONFIG.HEALTH_MAX) * 100;
+        healthBar.style.width = `${percent}%`;
+        healthValueDisplay.textContent = `${Math.ceil(percent)}%`;
+
+        if (percent < 30) {
+            healthBar.classList.add('bg-red-700');
+            healthBar.classList.remove('bg-red-500');
+        } else {
+            healthBar.classList.add('bg-red-500');
+            healthBar.classList.remove('bg-red-700');
+        }
+    }
+
+    /**
+     * 初始化/重置游戏状态。
+     */
+    function startGame() {
+        if (state.gameActive) return;
+
+        // 重置状态
+        state.score = 0;
+        state.health = CONFIG.HEALTH_MAX;
+        state.blocks.forEach(block => {
+            if (block.element) gameBoard.removeChild(block.element);
+        });
+        state.blocks = [];
+        state.blockIdCounter = 0;
+        state.lastTime = 0;
+        state.spawnTimer = 0;
+        state.currentSpawnInterval = CONFIG.SPAWN_INTERVAL_MAX;
+        state.currentBaseSpeed = CONFIG.SPEED_MIN;
+        state.nextDifficultyScore = CONFIG.DIFFICULTY_SCORE_STEP; // 重置难度分数线
+        state.startTime = performance.now(); // 记录开始时间
+
+        // 初始化 UI
+        updateBoardMetrics();
+        updateScore();
+        updateHealthBar();
+        messageBox.classList.add('hidden');
+        
+        startButton.textContent = '运行中...';
+        startButton.disabled = true;
+        startButton.classList.remove('bg-green-500', 'hover:bg-green-600');
+        startButton.classList.add('bg-gray-500');
+
+        state.gameActive = true;
+        requestAnimationFrame(gameLoop); // 启动循环
+        
+        // 初始生成一些块（更快地生成，避免卡顿）
+        setTimeout(spawnBlock, 100);
+        setTimeout(spawnBlock, 300);
+        setTimeout(spawnBlock, 500);
+    }
+
+    /**
+     * 游戏结束流程。
+     */
+    function gameOver() {
+        state.gameActive = false;
+        
+        startButton.textContent = '开始游戏';
+        startButton.disabled = false;
+        startButton.classList.add('bg-green-500', 'hover:bg-green-600');
+        startButton.classList.remove('bg-gray-500');
+
+        finalScoreDisplay.textContent = state.score;
+        messageBox.classList.remove('hidden');
+        messageBox.classList.add('flex');
+    }
+
+    // 监听窗口尺寸变化，更新坐标
+    window.addEventListener('resize', updateBoardMetrics);
+    
+    // 初始化时先更新一次，并设置启动按钮
+    window.onload = function() {
+        updateBoardMetrics();
+        startButton.onclick = startGame;
+    };
+    
+</script>
+
+</body>
+</html>

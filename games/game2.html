@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卫士吃代码 - Defender Eats Code</title>
+    <!-- 引入 Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b1a2e; /* 黑暗、科技感的主题 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+            overflow: hidden; /* 关键：防止页面滚动（反滚动） */
+        }
+
+        /* 游戏板样式 */
+        #gameCanvas {
+            border: 4px solid #00c6ff; /* 霓虹蓝边框 */
+            box-shadow: 0 0 20px rgba(0, 198, 255, 0.5);
+            background-color: #000;
+            border-radius: 8px;
+            display: block;
+            touch-action: none; /* 禁用默认触摸行为 */
+        }
+
+        /* 游戏UI容器 */
+        .game-ui {
+            width: 100%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+
+        /* 触摸控制按钮样式 */
+        .control-button {
+            transition: transform 0.1s ease;
+            box-shadow: 0 4px 0 #4a4a4a;
+        }
+        .control-button:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #4a4a4a;
+        }
+        
+        /* 强制画布自适应容器宽度 */
+        .canvas-container {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-ui flex flex-col items-center gap-4">
+    <h1 class="text-3xl font-extrabold text-white text-center tracking-wider" style="text-shadow: 0 0 8px #00c6ff;">
+        《卫士吃代码》
+    </h1>
+
+    <!-- 状态面板 -->
+    <div class="w-full bg-[#1e293b] p-3 rounded-lg shadow-xl flex justify-around text-lg font-bold text-white border-b-2 border-indigo-400">
+        <div>得分: <span id="scoreDisplay" class="text-yellow-300">0</span></div>
+        <div>生命: <span id="livesDisplay" class="text-red-400">3</span></div>
+        <button id="startButton" class="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition duration-150 text-sm">开始游戏</button>
+    </div>
+
+    <!-- 游戏画布容器 -->
+    <div class="canvas-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- 游戏信息和触摸控制 -->
+    <div class="w-full max-w-sm flex flex-col items-center gap-3">
+        <!-- 触摸控制 (为移动设备优化) -->
+        <div id="touchControls" class="grid grid-cols-3 gap-2 p-2 rounded-lg bg-[#1e293b] w-48 hidden">
+            <button id="upBtn" class="control-button col-start-2 bg-gray-600 text-white p-3 rounded-lg">⬆</button>
+            <div class="col-start-1 flex justify-between col-span-3">
+                <button id="leftBtn" class="control-button bg-gray-600 text-white p-3 rounded-lg">⬅</button>
+                <div></div>
+                <button id="rightBtn" class="control-button bg-gray-600 text-white p-3 rounded-lg">➡</button>
+            </div>
+            <button id="downBtn" class="control-button col-start-2 bg-gray-600 text-white p-3 rounded-lg">⬇</button>
+        </div>
+        
+        <!-- 消息区 -->
+        <div id="messageBox" class="text-center text-yellow-400 font-semibold p-2 bg-gray-800 rounded-lg w-full">
+            点击“开始游戏”或按任意方向键开始！
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================================
+    // 配置与初始化
+    // ==========================================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // --- 【自定义图片配置区域】 ---
+    // !!! 请将以下 URL 替换为您自己的 PNG 图片链接 !!!
+    // 卫士 (玩家) 图片 URL
+    const DEFENDER_IMAGE_URL = "https://s2-techtudo.glbimg.com/I0rMUY1YHBF7l58pLcMPjU1Wmh4=/400x0/smart/filters:strip_icc()/s.glbimg.com/po/tt2/f/original/2018/06/14/windows-defender-icone.jpg"; 
+    // 恶意软件 (幽灵) 图片 URL
+    const MALWARE_IMAGE_URL = "https://ik.imagekit.io/qualys/wp-content/uploads/2017/05/red-lock.jpg";
+    
+    let defenderImage = new Image();
+    defenderImage.src = DEFENDER_IMAGE_URL;
+
+    let malwareImage = new Image();
+    malwareImage.src = MALWARE_IMAGE_URL;
+
+    // 地图定义 (1: 墙, 0: 路径/代码, 2: 空路径, 3: 防火墙升级)
+    const INITIAL_MAP_LAYOUT = [
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        [1, 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 1],
+        [1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
+        [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1],
+        [1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1],
+        [1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1],
+        [1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+        [1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1],
+        [1, 1, 1, 1, 0, 1, 1, 0, 2, 2, 2, 0, 0, 1, 1, 0, 1, 1, 1, 1],
+        [1, 1, 1, 1, 0, 0, 0, 0, 2, 2, 2, 2, 0, 0, 0, 0, 1, 1, 1, 1],
+        [1, 1, 1, 1, 0, 1, 1, 0, 2, 2, 2, 2, 0, 1, 1, 0, 1, 1, 1, 1],
+        [1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1],
+        [1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1],
+        [1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1],
+        [1, 3, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 3, 1],
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    ];
+    let MAP = []; // 运行时地图
+    
+    // 游戏元素大小和速度
+    let TILE_SIZE = 30; // 瓦片尺寸 (像素)
+    const PLAYER_SPEED = 3.2; // 玩家移动速度 (增加以减少卡顿)
+    const GHOST_SPEED = 2.5; // 幽灵移动速度 (像素/帧)
+
+    const MAP_H = INITIAL_MAP_LAYOUT.length;
+    const MAP_W = INITIAL_MAP_LAYOUT[0].length;
+    
+    // 游戏状态
+    let score = 0;
+    let lives = 3;
+    let gameActive = false;
+    let lastTime = 0;
+    let totalDots = 0;
+    let dotsEaten = 0;
+    
+    // 防火墙状态
+    let firewallActive = false;
+    let firewallTimer = 0;
+    const FIREWALL_DURATION = 8000; // 8秒
+
+    // 实体对象
+    const player = {
+        x: 0, y: 0,
+        radius: TILE_SIZE * 0.48, // 增加半径，解决太小卡住的问题
+        dirX: 0, dirY: 0,
+        targetDirX: 0, targetDirY: 0,
+        startCol: 1, startRow: 1
+    };
+
+    const ghosts = [
+        createGhost(9, 8, 'rgb(255, 0, 0)', 'Malware Red'),
+        createGhost(10, 8, 'rgb(255, 128, 0)', 'Malware Orange'),
+        createGhost(9, 9, 'rgb(0, 255, 255)', 'Malware Cyan'),
+    ];
+
+    // ==========================================================
+    // 辅助函数
+    // ==========================================================
+
+    /**
+     * 创建幽灵对象
+     */
+    function createGhost(startCol, startRow, color, name) {
+        return {
+            x: 0, y: 0,
+            size: TILE_SIZE * 0.8,
+            color: color,
+            name: name,
+            dirX: 0, dirY: 0,
+            isFrightened: false,
+            isDead: false,
+            homeX: startCol,
+            homeY: startRow,
+        };
+    }
+    
+    /**
+     * 获取瓦片中心点的像素坐标
+     */
+    function getTileCenter(col, row) {
+        return {
+            x: col * TILE_SIZE + TILE_SIZE / 2,
+            y: row * TILE_SIZE + TILE_SIZE / 2
+        };
+    }
+
+    /**
+     * 检查给定坐标是否与墙体碰撞
+     */
+    function checkWallCollision(x, y, radius) {
+        // 增加碰撞检测的采样点，防止角色边缘触墙
+        const collisionMargin = radius * 0.95; 
+
+        const checkPoints = [
+            { dx: collisionMargin, dy: 0 },
+            { dx: -collisionMargin, dy: 0 },
+            { dx: 0, dy: collisionMargin },
+            { dx: 0, dy: -collisionMargin }
+        ];
+
+        for (const { dx, dy } of checkPoints) {
+            const tileX = Math.floor((x + dx) / TILE_SIZE);
+            const tileY = Math.floor((y + dy) / TILE_SIZE);
+            if (tileX >= 0 && tileX < MAP_W && tileY >= 0 && tileY < MAP_H) {
+                // 确保检查点落在墙上
+                if (MAP[tileY][tileX] === 1) {
+                    return true;
+                }
+            } else {
+                // 检查是否超出地图边界
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    /**
+     * 重置玩家和幽灵的位置
+     */
+    function resetPositions() {
+        const pPos = getTileCenter(player.startCol, player.startRow);
+        player.x = pPos.x;
+        player.y = pPos.y;
+        player.dirX = 0;
+        player.dirY = 0;
+        player.targetDirX = 0;
+        player.targetDirY = 0;
+
+        ghosts.forEach(ghost => {
+            const gPos = getTileCenter(ghost.homeX, ghost.homeY);
+            ghost.x = gPos.x;
+            ghost.y = gPos.y;
+            ghost.dirX = 0;
+            ghost.dirY = 0;
+            ghost.isFrightened = false;
+            ghost.isDead = false;
+        });
+    }
+
+    // ==========================================================
+    // 渲染函数
+    // ==========================================================
+
+    /**
+     * 绘制迷宫和所有静态元素
+     */
+    function drawMap() {
+        for (let r = 0; r < MAP_H; r++) {
+            for (let c = 0; c < MAP_W; c++) {
+                const x = c * TILE_SIZE;
+                const y = r * TILE_SIZE;
+
+                // 绘制墙
+                if (MAP[r][c] === 1) {
+                    ctx.fillStyle = '#004d99';
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = '#00c6ff';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                }
+
+                // 绘制清洁代码 (圆点)
+                else if (MAP[r][c] === 0) {
+                    ctx.fillStyle = '#ffe600';
+                    ctx.beginPath();
+                    ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, TILE_SIZE * 0.15, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 绘制防火墙升级 (大力丸)
+                else if (MAP[r][c] === 3) {
+                    ctx.fillStyle = '#ff004c';
+                    ctx.beginPath();
+                    ctx.arc(x + TILE_SIZE / 2, y + TILE_SIZE / 2, TILE_SIZE * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+    }
+
+    /**
+     * 绘制卫士 (玩家) - 使用 PNG 图片
+     */
+    function drawPlayer() {
+        const size = player.radius * 2;
+        // 如果图片加载失败或未加载，则使用黄色圆圈作为备用
+        if (defenderImage.complete && defenderImage.naturalHeight !== 0) {
+            ctx.drawImage(defenderImage, player.x - size / 2, player.y - size / 2, size, size);
+        } else {
+            // 绘制备用黄色圆圈
+            ctx.fillStyle = '#ffe600';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+            // 绘制备用图标
+            ctx.fillStyle = 'black';
+            ctx.font = `${player.radius}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🛡️', player.x, player.y);
+        }
+    }
+
+    /**
+     * 绘制恶意软件 (幽灵) - 使用 PNG 图片
+     */
+    function drawGhosts() {
+        ghosts.forEach(ghost => {
+            const size = ghost.size;
+            
+            if (ghost.isDead) {
+                // 如果被吃掉，只显示灵魂
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.font = `${size * 0.7}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('👻', ghost.x, ghost.y + 2);
+                return;
+            }
+
+            // 如果图片加载失败或未加载，则使用彩色形状作为备用
+            if (malwareImage.complete && malwareImage.naturalHeight !== 0) {
+                // 绘制图片
+                ctx.drawImage(malwareImage, ghost.x - size / 2, ghost.y - size / 2, size, size);
+            } else {
+                // 绘制备用幽灵形状
+                ctx.fillStyle = ghost.color;
+                ctx.fillRect(ghost.x - size/2, ghost.y - size/2, size, size);
+            }
+            
+            // 受惊时的特效 (叠加效果)
+            if (ghost.isFrightened) {
+                 ctx.fillStyle = 'rgba(0, 0, 255, 0.5)'; // 蓝色半透明覆盖
+                 ctx.fillRect(ghost.x - size/2, ghost.y - size/2, size, size);
+                 
+                 // 警告图标
+                 ctx.fillStyle = 'white';
+                 ctx.font = `${size * 0.5}px Arial`;
+                 ctx.textAlign = 'center';
+                 ctx.textBaseline = 'middle';
+                 ctx.fillText('⚡', ghost.x, ghost.y + size * 0.3);
+            }
+        });
+    }
+
+    // ==========================================================
+    // 游戏逻辑
+    // ==========================================================
+
+    /**
+     * 幽灵 AI 决策 (在瓦片中心点执行)
+     */
+    function ghostAI(ghost, c, r) {
+        let possibleDirections = [];
+        const directions = [{ dx: 1, dy: 0 }, { dx: -1, dy: 0 }, { dx: 0, dy: 1 }, { dx: 0, dy: -1 }];
+
+        for (const { dx, dy } of directions) {
+            const nextC = c + dx;
+            const nextR = r + dy;
+            
+            if (nextC >= 0 && nextC < MAP_W && nextR >= 0 && nextR < MAP_H && MAP[nextR][nextC] !== 1) {
+                if (dx !== -ghost.dirX || dy !== -ghost.dirY || ghost.isFrightened) {
+                    possibleDirections.push({ dx, dy });
+                }
+            }
+        }
+        
+        if (possibleDirections.length === 0) {
+            // 被困住了，只能掉头
+            return { dx: -ghost.dirX, dy: -ghost.dirY };
+        }
+        
+        let nextDir = possibleDirections[0];
+        let bestScore = -Infinity; // 追逐模式：最大化得分 (最小化距离为目标)
+        if (ghost.isFrightened) bestScore = Infinity; // 逃跑模式：最小化得分 (最大化距离)
+
+        // 追逐/逃跑决策
+        possibleDirections.forEach(dir => {
+            const nextTile = getTileCenter(c + dir.dx, r + dir.dy);
+            const distSq = (player.x - nextTile.x) ** 2 + (player.y - nextTile.y) ** 2;
+
+            let score = -distSq; 
+            if (ghost.isFrightened) score = distSq;
+            
+            if ((ghost.isFrightened && score > bestScore) || (!ghost.isFrightened && score > bestScore)) {
+                bestScore = score;
+                nextDir = dir;
+            }
+        });
+        
+        return nextDir;
+    }
+
+
+    /**
+     * 恶意软件移动逻辑
+     */
+    function moveGhosts() {
+        ghosts.forEach(ghost => {
+            const speed = ghost.isFrightened ? GHOST_SPEED * 0.7 : GHOST_SPEED; // 受惊减速
+            
+            if (ghost.isDead) {
+                // 被吃掉的幽灵加速返回幽灵屋
+                const targetPos = getTileCenter(ghost.homeX, ghost.homeY);
+                const dx = targetPos.x - ghost.x;
+                const dy = targetPos.y - ghost.y;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < 4) { // 接近中心时重生
+                    ghost.isDead = false;
+                    ghost.isFrightened = false;
+                    ghost.x = targetPos.x;
+                    ghost.y = targetPos.y;
+                    return;
+                }
+                
+                const dist = Math.sqrt(distSq);
+                // 幽灵加速返回
+                ghost.x += (dx / dist) * GHOST_SPEED * 2; 
+                ghost.y += (dy / dist) * GHOST_SPEED * 2;
+                return;
+            }
+            
+            const c = Math.floor(ghost.x / TILE_SIZE);
+            const r = Math.floor(ghost.y / TILE_SIZE);
+            const centerPos = getTileCenter(c, r);
+
+            const atCenter = Math.abs(ghost.x - centerPos.x) < speed && Math.abs(ghost.y - centerPos.y) < speed;
+
+            if (atCenter) {
+                ghost.x = centerPos.x;
+                ghost.y = centerPos.y;
+
+                const nextDir = ghostAI(ghost, c, r);
+                ghost.dirX = nextDir.dx;
+                ghost.dirY = nextDir.dy;
+            }
+
+            // 移动
+            ghost.x += ghost.dirX * speed;
+            ghost.y += ghost.dirY * speed;
+        });
+    }
+
+
+    /**
+     * 玩家移动和碰撞处理
+     */
+    function movePlayer() {
+        // 1. 尝试切换方向 (解决卡顿的关键：角落转向和中心吸附)
+        if (player.targetDirX !== 0 || player.targetDirY !== 0) {
+            const newX = player.x + player.targetDirX * PLAYER_SPEED;
+            const newY = player.y + player.targetDirY * PLAYER_SPEED;
+            
+            if (!checkWallCollision(newX, newY, player.radius)) {
+                
+                // *** 瓦片中心吸附逻辑 (减少卡顿) ***
+                const currentC = Math.floor(player.x / TILE_SIZE);
+                const currentR = Math.floor(player.y / TILE_SIZE);
+                const centerPos = getTileCenter(currentC, currentR);
+                
+                // 如果是水平方向移动，则将 Y 轴对齐到中心
+                if (player.targetDirX !== 0) { 
+                    player.y = centerPos.y;
+                } 
+                // 如果是垂直方向移动，则将 X 轴对齐到中心
+                else if (player.targetDirY !== 0) { 
+                    player.x = centerPos.x;
+                }
+                
+                player.dirX = player.targetDirX;
+                player.dirY = player.targetDirY;
+                player.targetDirX = 0;
+                player.targetDirY = 0;
+            }
+        }
+
+        // 2. 实际移动
+        const nextX = player.x + player.dirX * PLAYER_SPEED;
+        const nextY = player.y + player.dirY * PLAYER_SPEED;
+
+        if (!checkWallCollision(nextX, nextY, player.radius)) {
+            player.x = nextX;
+            player.y = nextY;
+        } else {
+            // 撞墙时停止
+            player.dirX = 0;
+            player.dirY = 0;
+        }
+    }
+    
+    // ... (checkDotCollision, activateFirewall, checkGhostCollision, gameLoop, updateScore, updateLives 保持不变)
+    
+    /**
+     * 检查卫士是否吃到了清洁代码或防火墙升级
+     */
+    function checkDotCollision() {
+        const c = Math.floor(player.x / TILE_SIZE);
+        const r = Math.floor(player.y / TILE_SIZE);
+
+        if (c < 0 || c >= MAP_W || r < 0 || r >= MAP_H) return;
+
+        // 1. 吃到清洁代码 (0)
+        if (MAP[r][c] === 0) {
+            MAP[r][c] = 2; // 标记为已吃
+            score += 10;
+            dotsEaten++;
+        }
+        // 2. 吃到防火墙升级 (3)
+        else if (MAP[r][c] === 3) {
+            MAP[r][c] = 2; // 标记为已吃
+            score += 50;
+            activateFirewall();
+        }
+
+        // 检查是否胜利
+        if (dotsEaten >= totalDots) {
+            gameOver(true);
+        }
+        
+        updateScore();
+    }
+
+    /**
+     * 激活防火墙升级状态
+     */
+    function activateFirewall() {
+        firewallActive = true;
+        firewallTimer = FIREWALL_DURATION;
+        document.getElementById('messageBox').textContent = '⚠️ 防火墙升级已激活！现在可以清理恶意软件！ (8秒)';
+        
+        ghosts.forEach(ghost => {
+            if (!ghost.isDead) {
+                ghost.isFrightened = true;
+                // 幽灵掉头
+                ghost.dirX = -ghost.dirX;
+                ghost.dirY = -ghost.dirY;
+            }
+        });
+    }
+
+    /**
+     * 检查玩家是否与恶意软件碰撞
+     */
+    function checkGhostCollision() {
+        ghosts.forEach(ghost => {
+            if (ghost.isDead) return;
+
+            const dist = Math.sqrt(
+                (player.x - ghost.x) ** 2 + (player.y - ghost.y) ** 2
+            );
+
+            // 碰撞距离计算
+            if (dist < player.radius + ghost.size * 0.4) {
+                // 发生碰撞！
+                if (firewallActive && ghost.isFrightened) {
+                    // 卫士胜利：吃掉恶意软件
+                    ghost.isDead = true;
+                    score += 200;
+                    document.getElementById('messageBox').textContent = `🎉 清理了恶意软件: ${ghost.name}! +200分`;
+                } else {
+                    // 卫士失败：被恶意软件感染
+                    lives--;
+                    updateLives();
+                    if (lives <= 0) {
+                        gameOver(false);
+                    } else {
+                        // 卫士重生
+                        document.getElementById('messageBox').textContent = '❌ 系统感染，卫士重生！';
+                        resetPositions();
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * 游戏主循环
+     */
+    function gameLoop(timestamp) {
+        if (!gameActive) return;
+
+        if (lastTime === 0) lastTime = timestamp;
+        const deltaTime = timestamp - lastTime;
+        lastTime = timestamp;
+
+        // 1. 清理画布
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 2. 状态更新
+        if (firewallActive) {
+            firewallTimer -= deltaTime;
+            if (firewallTimer <= 0) {
+                firewallActive = false;
+                ghosts.forEach(g => g.isFrightened = false);
+                document.getElementById('messageBox').textContent = '防火墙升级结束，威胁恢复警惕！';
+            }
+        }
+
+        // 3. 移动
+        movePlayer();
+        moveGhosts(); 
+
+        // 4. 碰撞检测
+        checkDotCollision();
+        checkGhostCollision();
+
+        // 5. 渲染
+        drawMap();
+        drawGhosts();
+        drawPlayer();
+
+        // 6. 循环
+        requestAnimationFrame(gameLoop);
+    }
+
+    /**
+     * 更新分数显示
+     */
+    function updateScore() {
+        document.getElementById('scoreDisplay').textContent = score;
+    }
+
+    /**
+     * 更新生命值显示
+     */
+    function updateLives() {
+        document.getElementById('livesDisplay').textContent = lives;
+    }
+
+    // ==========================================================
+    // UI 更新与流程控制
+    // ==========================================================
+    
+    /**
+     * 调整画布尺寸以适应容器
+     */
+    function resizeCanvas() {
+        const container = document.querySelector('.canvas-container');
+        const containerWidth = container.clientWidth;
+        
+        // 基于容器宽度重新计算 TILE_SIZE
+        TILE_SIZE = Math.floor(containerWidth / MAP_W);
+        if (TILE_SIZE < 20) TILE_SIZE = 20; // 最小尺寸限制
+        if (TILE_SIZE > 35) TILE_SIZE = 35; // 最大尺寸限制
+
+        canvas.width = MAP_W * TILE_SIZE;
+        canvas.height = MAP_H * TILE_SIZE;
+        
+        // 更新角色尺寸 (玩家和幽灵尺寸的百分比)
+        player.radius = TILE_SIZE * 0.48; 
+        ghosts.forEach(g => g.size = TILE_SIZE * 0.8);
+
+        // 如果游戏未开始，则重新绘制地图并更新初始位置
+        if (!gameActive) {
+            drawMap();
+            resetPositions(); 
+        }
+    }
+
+
+    /**
+     * 键盘事件处理
+     */
+    function handleKeyDown(e) {
+        if (!gameActive && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            startGame();
+            return;
+        }
+        if (!gameActive) return;
+
+        // 设置目标方向，并阻止默认滚动行为
+        switch (e.key) {
+            case 'ArrowUp': e.preventDefault(); player.targetDirY = -1; player.targetDirX = 0; break;
+            case 'ArrowDown': e.preventDefault(); player.targetDirY = 1; player.targetDirX = 0; break;
+            case 'ArrowLeft': e.preventDefault(); player.targetDirX = -1; player.targetDirY = 0; break;
+            case 'ArrowRight': e.preventDefault(); player.targetDirX = 1; player.targetDirY = 0; break;
+        }
+    }
+    
+    /**
+     * 触摸控制事件处理
+     */
+    function setupTouchControls() {
+        const controls = document.getElementById('touchControls');
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        if (isTouchDevice) {
+            controls.classList.remove('hidden');
+            
+            const handleDirection = (dirX, dirY) => {
+                if (!gameActive) startGame();
+                player.targetDirX = dirX;
+                player.targetDirY = dirY;
+            };
+
+            document.getElementById('upBtn').ontouchstart = () => handleDirection(0, -1);
+            document.getElementById('downBtn').ontouchstart = () => handleDirection(0, 1);
+            document.getElementById('leftBtn').ontouchstart = () => handleDirection(-1, 0);
+            document.getElementById('rightBtn').ontouchstart = () => handleDirection(1, 0);
+        }
+    }
+
+
+    /**
+     * 初始化游戏
+     */
+    function initGame() {
+        // 计算总代码点数
+        totalDots = INITIAL_MAP_LAYOUT.flat().filter(tile => tile === 0 || tile === 3).length;
+        
+        // 绑定事件
+        window.addEventListener('keydown', handleKeyDown);
+        document.getElementById('startButton').onclick = startGame;
+        window.addEventListener('resize', resizeCanvas);
+        
+        setupTouchControls();
+        resizeCanvas(); // 首次运行时调整大小
+        
+        // 初始渲染
+        drawMap();
+    }
+    
+    /**
+     * 开始游戏
+     */
+    function startGame() {
+        if (gameActive) return;
+        
+        // 确保地图重置
+        MAP = INITIAL_MAP_LAYOUT.map(row => [...row]);
+        
+        // 重置状态
+        score = 0;
+        lives = 3;
+        dotsEaten = 0;
+        firewallActive = false;
+        firewallTimer = 0;
+        
+        resetPositions();
+        updateScore();
+        updateLives();
+        document.getElementById('messageBox').innerHTML = '<p class="text-green-400">系统已启动！开始保卫！</p>';
+        
+        // 启动主循环
+        gameActive = true;
+        lastTime = 0;
+        requestAnimationFrame(gameLoop);
+    }
+
+    /**
+     * 游戏结束
+     */
+    function gameOver(win) {
+        gameActive = false;
+        
+        const messageTitle = win ? '✅ 任务完成！' : '❌ 系统崩溃！';
+        const messageContent = win ? '您成功清理了所有代码！' : '恶意软件已完全感染系统！';
+        
+        const resultModal = document.getElementById('messageBox');
+        resultModal.innerHTML = `
+            <p class="text-xl font-bold mb-2 ${win ? 'text-green-400' : 'text-red-400'}">${messageTitle}</p>
+            <p class="text-lg text-white">${messageContent} 最终得分: <span class="text-yellow-300">${score}</span></p>
+            <button class="px-3 py-1 mt-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600" onclick="startGame()">
+                重新启动系统 (再来一次)
+            </button>
+        `;
+    }
+
+    // 页面加载完成后启动
+    window.onload = initGame;
+</script>
+
+</body>
+</html>

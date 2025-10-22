@@ -1,0 +1,314 @@
+<!DOCTYPE HTML>
+<!--
+	Read Only by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>软件介绍 by Ruiyuan</title>
+		<link rel="icon" type="image/png" href="images/favicon.png"/>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<meta name="description" content="本篇文章是关于软件的介绍，这里讲述了系统启动，驱动，编程等等东西。 页尾还加上了两个小游戏，希望大家喜欢" />
+		<meta name="keywords" content="软件, 工具, Windows, Linux kernel, 系统启动, 驱动程序, 编程, ">
+		<meta name="author" content="Ruiyuan">
+		<link rel="stylesheet" href="assets/css/main.css" />
+	</head>
+	<body class="is-preload">
+
+		<!-- Header -->
+			<section id="header">
+				<header>
+					<span class="image avatar"><img src="images/avatar.jpg" alt="" /></span>
+					<h1 id="logo"><a>Ruiyuan Z</a></h1>
+					<p>海内存知己<br />
+					天涯若比邻</p>
+				</header>
+				<nav id="nav">
+					<ul>
+						<li><a href="#one" class="active">关于</a></li>
+						<li><a href="#two">系统的启动流程</a></li>
+						<li><a href="#three">最底层的软件</a></li>
+						<li><a href="#four">编程编译与解释</a></li>
+						<li><a href="#five">软件的新时代</a></li>
+					</ul>
+				</nav>
+				<!-- footer>
+					<ul class="icons">
+						<li><a href="#" class="icon brands fa-twitter"><span class="label">Twitter</span></a></li>
+						<li><a href="#" class="icon brands fa-facebook-f"><span class="label">Facebook</span></a></li>
+						<li><a href="#" class="icon brands fa-instagram"><span class="label">Instagram</span></a></li>
+						<li><a href="#" class="icon brands fa-github"><span class="label">Github</span></a></li>
+						<li><a href="#" class="icon solid fa-envelope"><span class="label">Email</span></a></li>
+					</ul>
+				</footer -->
+			</section>
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+
+						<!-- One 第一段 -->
+							<section id="one">
+								<div class="image main" data-position="center">
+									<img src="images/banner.jpg" alt="" />
+								</div>
+								<div class="container">
+									<header class="major">
+										<h2>软件</h2>
+										<p>这里... 软件的一切</p>
+										<h5>可能有些错误或者需要补充的地方，请谅解~</h5>
+									</header>
+									<p>早上醒来，您打开的第一个 App；工作时处理文档的办公套件；晚上刷剧或玩游戏的平台……它们都有一个共同的名字：软件。<br />
+									<br />
+									软件，是您数字生活中的“幕后英雄”。它让您无需懂得复杂的二进制代码，就能轻松完成任务、享受娱乐。它不是冰冷的程序，而是一套为了解决人类问题而设计的精妙指令集。它让沟通更快捷、让学习更有效、让世界触手可及。<br />
+									<br />
+									在这个页面中，我们将以轻松有趣的方式，为您展示软件是如何从零开始被创造、它有哪些不同的形态，以及我们每天都在使用的这些应用是如何在您的设备上“跑起来”的。准备好，让我们一起进入这个神奇的数字世界吧！</p>
+								</div>
+							</section>
+
+						<!-- Two 第二段 -->
+							<section id="two">
+								<div class="container">
+									<h3>桌面与移动系统的启动流程介绍</h3>
+								<table style="margin-top: 50px;">
+								  <caption><strong><p style="font-size: 125%;">桌面系统启动流程</p></strong></caption>
+								  <tr>
+									<th>阶段</th>
+									<th>核心任务</th>
+									<th>关键角色</th>
+									<th>简明描述</th>
+								  </tr>
+								  <tr>
+									<td>1. 唤醒与自检</td>
+									<td>硬件初始化和基础检测。</td>
+									<td><b>BIOS/UEFI</b> 固件</td>
+									<td>按下电源，固件运行，快速检查 CPU、内存、显卡等基础硬件是否就绪。</td>
+								  </tr>
+								  <tr>
+									<td>2. 寻找与装载</td>
+									<td>找到操作系统，并加载其启动程序。</td>
+									<td><b>MBR/GPT</b>，引导加载器</td>
+									<td>根据设备的顺序，找到硬盘上的引导程序，将其加载到内存，并将控制权交给它。</td>
+								  </tr>
+								  <tr>
+									<td>3. 核心启动</td>
+									<td>操作系统内核接管硬件。</td>
+									<td>操作系统内核</td>
+									<td>内核加载，初始化各种驱动程序，并准备系统核心的运行环境。</td>
+								  </tr>
+								  <tr>
+									<td>4. 用户界面</td>
+									<td>启动服务并呈现操作界面。</td>
+									<td><b>Init</b> 进程，显示管理器</td>
+									<td>启动各种后台服务，运行桌面环境，显示登录或主界面，等待用户操作。</td>
+								  </tr>
+								</table>
+								
+								<table style="margin-top: 50px;">
+									<caption><strong><p style="font-size: 125%;">移动系统启动流程</p></strong></caption>
+									<tr>
+										<th>阶段</th>
+										<th>核心任务</th>
+										<th>关键角色</th>
+										<th>简明描述</th>
+									</tr>
+									<tr>
+										<td>1. 绝对安全启动</td>
+										<td>验证系统未被篡改，建立信任链。</td>
+										<td><b>Boot ROM (PBL)</b></td>
+										<td>SoC内置固件启动，强制验证下一阶段的程序是否是官方的，确保安全。</td>
+									</tr>
+									<tr>
+										<td>2. 逐步加载核心</td>
+										<td>初始化硬件并准备运行环境。</td>
+										<td><b>SBL/XBL, ABoot/iBoot</b></td>
+										<td>逐步加载更复杂的引导程序，激活TrustZone安全区，并初始化必要硬件。</td>
+									</tr>
+									<tr>
+										<td>3. 内核接管</td>
+										<td>启动手机操作系统的核心。</td>
+										<td><b>Linux/Darwin 内核</b></td>
+										<td>内核加载驱动，启动Init进程，配置网络、传感器等关键功能。</td>
+									</tr>
+									<tr>
+										<td>4. 进入系统</td>
+										<td>呈现界面并启动应用程序。</td>
+										<td><b>Zygote, Launcher/主屏幕</b></td>
+										<td>启动图形服务，绘制开机动画和主屏幕，准备好让用户操作应用。</td>
+									</tr>
+								</table>
+							</section>
+							</div>
+
+						<!-- Three 第三段 -->
+							<section id="three">
+								<div class="container">
+									<h3>操作系统与驱动程序</h3>
+									<p>这里我会以最简单的方法告诉你："你每天用的软件都是基于数年和无数人创作的无比浩大的工程"，然而这永远不是<strong>终点</strong>。</p>
+									<div class="features">
+										<article>
+											<a class="image">
+												<img src="images/pic01.jpg" alt="" />
+												<p>内核就像计算机的“中枢神经系统”，它管理着内存、CPU 时间和所有硬件，确保每个程序都能安全、有序地运行。</p>
+											</a>
+											<div class="inner">
+												<h4>操作系统内核（kernel）</h4>
+												<p>内核是操作系统的核心，是硬件和软件之间的翻译官和总指挥。这里是我们日常比较常见的一些：</p>
+												<h5>Windows NT</h5>
+												<p>它支撑着从 Windows XP 到 Windows 11 的所有功能。它是一个微内核/混合内核，设计上非常注重稳定性和商业应用兼容性。</p>
+												<h5>Linux kernel</h5>
+												<p>它是一个宏内核，功能强大、灵活多变。被广泛用于服务器、Android 手机、物联网设备和超级计算机，是开源精神的代表。</p>
+												<h5>BSD</h5>
+												<p>是 Unix 的一个高效分支，以稳定和优秀的网络性能著称，是许多现代系统（包括 Darwin： 苹果 macOS 和 iOS 的基石）的技术源头。</p>
+											</div>
+										</article>
+										<article>
+											<a class="image">
+												<img src="images/pic02.jpg" alt="" />
+												<p>Windows 的桌面环境 是 Windows Shell；在 Linux 上，常见的有 GNOME、KDE 等不同的“装修风格”。</p>
+											</a>
+											<div class="inner">
+												<h4>图形界面与桌面环境</h4>
+												<h5>图形用户界面 (GUI)</h5>
+												<p>它取代了复杂的文字命令（命令行界面），让您可以通过窗口、图标、按钮来操作电脑。您点击、拖动、缩放的一切（如窗口、按钮、滚动条、光标），都是 GUI 的功劳。</p>
+												<h5>桌面环境 (DE)</h5>
+												<p>它是 GUI 的完整实现，包含了一切用户可见的元素——包括壁纸、任务栏、开始菜单/Dock 栏、文件管理器，以及整体的视觉主题和操作习惯</p>
+											</div>
+										</article>
+										<article>
+											<a class="image">
+												<img src="images/pic03.jpg" alt="" />
+												<p>驱动程序是让内核理解并控制特定硬件的专用翻译官，是确保硬件能工作的核心桥梁。</p>
+											</a>
+											<div class="inner">
+												<h4>驱动程序 (Driver)</h4>
+												<p>驱动程序是一段特殊的软件代码，它充当着操作系统内核（总指挥）和特定硬件（比如打印机、网卡）之间的翻译官。</p>
+												<ul>
+													<li><strong>没有驱动程序：</strong> 内核不知道如何与打印机“交谈”，它只看到一堆不理解的芯片。</li>
+													<li><strong>有了驱动程序：</strong> 驱动程序知道这台打印机芯片的所有<strong>“方言”和“指令集”。当内核说“打印这张文件！”时，驱动程序就会将这个通用指令翻译</strong>成打印机能听懂的精确电子信号。</li>
+												</ul>
+												<p>没有驱动，硬件就是一块废铁。是驱动程序让显卡能画出高清画面，让网卡能连接 Wi-Fi。驱动程序是硬件更新的生命线。硬件制造商可以通过更新驱动来修复错误、提升性能，而无需更换您的硬件。</p>
+											</div>
+										</article>
+									</div>
+								</div>
+							</section>
+							
+                        <!-- Four 第四段 -->
+							<section id="four">
+								<div class="container">
+									<h3>编程，编译 与解释</h3>
+									<p>写代码其实就是写文章，目地不只是写出要表达的内容，也需要<strong>高效</strong>地吸引那些选择你的作品的那些读者们。</p>
+									<div class="features">
+										<article>
+											<a class="image right">
+												<img src="images/pic04.jpg" alt="" />
+												<p>编程语言就像是您与外国朋友（计算机）交流时使用的通用语言（比如英语或中文）</p>
+											</a>
+											<div class="inner">
+												<h4>编程语言 (Programming Languages)</h4>
+												<p>我们不能直接对 CPU 说“帮我打开一个浏览器并搜索猫咪图片”。我们必须使用结构化的语言来表达复杂的逻辑，例如循环、条件判断和数据操作。</p>
+												<ul>
+													<li><strong>高级语言 (High-Level Languages)：</strong> 接近人类语言和数学表达，容易理解和编写（如 Python, Java, C++, JavaScript）。但是它们需要被翻译。</li>
+													<li><strong>低级语言 (Low-Level Languages)：</strong> 接近计算机硬件的指令（如汇编语言、机器语言）。机器语言是纯粹的二进制代码 (0 和 1)，是 CPU 唯一能直接执行的语言。</li>
+												</ul>
+
+											</div>
+										</article>
+										<article>
+											<a class="image right">
+												<img src="images/pic05.jpg" alt="" />
+												<p>就像将一本英文原著一次性翻译并出版成中文书籍。一旦出版，读者就可以直接阅读（运行），速度非常快。</p>
+											</a>
+											<div class="inner">
+												<h4>编译 (Compilation)</h4>
+												<p>无论您使用哪种高级语言，计算机的处理器（CPU）唯一能执行的都是机器语言（0 和 1 组成的二进制指令）。因此，必须有一个“翻译”过程。这个翻译过程主要有两种方式：编译 和 解释。</p>
+												<ol>
+													<li><strong>工作方式：</strong> 编译器（Compiler）是一个特殊的程序，它在程序运行之前，将全部源代码一次性读取、分析和翻译成目标平台（比如 Windows 或 Linux）的机器语言。</li>
+													<li><strong>产物：</strong> 翻译完成后，会生成一个独立的、可以直接运行的可执行文件（例如 Windows 上的 .exe 文件）</li>
+												</ol>
+											</div>
+										</article>
+										<article>
+											<a class="image right">
+												<img src="images/pic06.jpg" alt="" />
+												<p>就像一个同声传译员，一边听英文原声（源代码），一边实时翻译给观众（CPU）听，整个过程是同步发生的。</p>
+											</a>
+											<div class="inner">
+												<h4>解释 (Interpretation)</h4>
+												<p>编写和调试非常灵活，因为您可以随时修改一行代码并立即运行。代码可以在任何安装了相应解释器的平台上运行（跨平台性好）。 But 每次运行都需要重复翻译，执行速度通常比编译后的程序慢。</p>
+												<ol>
+													<li><strong>工作方式：</strong>解释器（Interpreter）程序在程序运行时，逐行读取源代码，并立即将其翻译成机器指令，让 CPU 执行。</li>
+													<li><strong>产物：</strong>不会生成独立的可执行文件。每次运行程序都需要源代码和解释器。</li>
+												</ol>
+											</div>
+										</article>
+									</div>
+								</div>
+							</section>
+							
+						<!-- Five 第五段 -->
+							<section id="five">
+								<div class="container">
+									<h3>软件的“现在与未来”</h3>
+									<p>这个模块转向当前的技术热点和未来发展，展示软件的广阔前景和无限可能。</p>
+									<h4>1. 软件定义一切 (Software-Defined X)</h4>
+									<blockquote><a>SDDC (数据中心)、SDN (网络)</a></blockquote>
+									<p>从硬件控制到软件控制。 以前我们通过复杂的物理硬件来管理数据中心和网络。现在，强大的软件接管了这些控制权，让资源分配、配置和优化都变得像管理应用程序一样灵活高效。软件正在将物理世界变得可编程。</p>
+									
+									<h4>2. 人工智能 (AI) 与 机器学习 (ML)</h4>
+									<blockquote><a>算法模型、深度学习</a></blockquote>
+									<p>让软件学会思考。 这里的软件不再是被动地执行固定指令，而是通过海量数据训练出的算法模型。软件可以“感知”数据、进行预测和决策，为我们带来自动驾驶、智能推荐和语言模型等革命性应用。</p>
+									
+									<h4>3. 边缘计算与物联网 (IoT)</h4>
+									<blockquote><a>微型嵌入式系统、传感器网络</a></blockquote>
+									<p>软件无处不在。 软件正在从大型计算机和手机，扩展到家里的电灯、工厂的机器人和城市中的传感器。边缘计算让数据处理尽可能靠近数据源（即“边缘”），使物联网设备能够即时响应，是软件连接物理世界的新前沿。</p>
+									
+									<h4>4. 云计算 (Cloud Computing)</h4>
+									<blockquote><a>基础设施即服务 (IaaS)</a></blockquote>
+									<p>软件即服务。 云计算将计算资源（服务器、存储、网络）抽象化，通过软件界面提供给用户。它极大地改变了软件的部署和使用方式，让任何人都可以在几分钟内启动一个强大的全球应用。</p>
+								</div>
+							</section>
+							
+						<!-- Six 第六段 -->
+							<section id="six">
+								<div class="container">
+									<h3>收尾</h3>
+									<p>“从按下电源键的那一刻起，到我们指尖轻触屏幕，软件在幕后完成了一场又一场的精彩绝伦的数字魔术。它不仅是冰冷的逻辑，更是人类智慧和创造力的结晶。<br /><br />随着人工智能、物联网和云计算的飞速发展，软件的边界正在以前所未有的速度扩张。软件定义一切的时代已经来临！<br /><br />感谢您与我们一起探索这个充满魅力的数字世界。无论您的目标是理解科技、学习编程，还是仅仅想成为一个更聪明的用户——现在，就是最好的开始！”</p>
+									<h4>放松一下</h4>
+									<a href="games/game1.html" class="button-link" target="_blank">
+										点我打开"清理内存大师"游戏
+									</a>
+									
+									<a href="games/game2.html" class="button-link" target="_blank">
+										点我打开"Defender吃豆"游戏
+									</a>
+								</div>
+							</section>
+								
+				<!-- Footer -->
+					<section id="footer">
+						<div class="container">
+							<ul class="copyright">
+								<li>&copy; Ruiyuan Z. All rights reserved.</li><li>Design: <a href="http://html5up.net">HTML5 UP</a></li>
+							</ul>
+						</div>
+					</section>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="assets/js/jquery.min.js"></script>
+			<script src="assets/js/jquery.scrollex.min.js"></script>
+			<script src="assets/js/jquery.scrolly.min.js"></script>
+			<script src="assets/js/browser.min.js"></script>
+			<script src="assets/js/breakpoints.min.js"></script>
+			<script src="assets/js/util.js"></script>
+			<script src="assets/js/main.js"></script>
+
+	</body>
+</html>
